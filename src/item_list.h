@@ -8,7 +8,7 @@ typedef struct item item;
 
 item_list *item_list_new();
 
-item *item_list_add_new(item_list *tree);
+item *item_list_add(item_list *tree);
 
 item *item_list_add_str(item_list *tree, const char *str);
 

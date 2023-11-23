@@ -1,7 +1,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
+#include <err.h>
 
 #include "item_list.h"
 
@@ -33,7 +35,7 @@ char *new_strv(const char *format, va_list args)
 	va_end(cp_args);
 
 	if ((str = malloc(size + 1)) == NULL)
-		return NULL;
+		err(EXIT_FAILURE, "malloc");
 
 	vsnprintf(str, size + 1, format, args);
 
@@ -57,19 +59,19 @@ item_list *item_list_new()
 	item_list *t;
 
 	if ((t = malloc(sizeof(item_list))) == NULL)
-		return NULL;
+		err(EXIT_FAILURE, "malloc");
 
 	*t = (item_list){ 0 };
 
 	return t;
 }
 
-item *item_list_add_new(item_list *list)
+item *item_list_add(item_list *list)
 {
 	item *i;
 
 	if ((i = malloc(sizeof(item))) == NULL)
-		return NULL;
+		err(EXIT_FAILURE, "malloc");
 
 	*i = (item){ .str = NULL,
 		     .parent = list,
@@ -97,20 +99,14 @@ item *item_list_add_str(item_list *list, const char *text)
 
 	size = strlen(text);
 	if ((str = malloc(size + 1)) == NULL)
-		goto err;
+		err(EXIT_FAILURE, "malloc");
 
 	memmove(str, text, size + 1);
 
-	if ((i = item_list_add_new(list)) == NULL)
-		goto free_str;
-
+	i = item_list_add(list);
 	i->str = str;
 
 	return i;
-free_str:
-	free(str);
-err:
-	return NULL;
 }
 
 item *item_list_add_strf(item_list *list, const char *format, ...)
@@ -134,27 +130,18 @@ item *item_list_add_strfv(item_list *list, const char *format, va_list args)
 	va_copy(cp_args, args);
 	str = new_strv(format, cp_args);
 	va_end(cp_args);
-	if (str == NULL)
-		goto err;
 
-	if ((i = item_list_add_new(list)) == NULL)
-		goto free_str;
-
+	i = item_list_add(list);
 	i->str = str;
 
 	return i;
-free_str:
-	free(str);
-err:
-	return NULL;
 }
 
 item_list *item_add_sublist(item *item)
 {
 	item_list *t;
 
-	if ((t = item_list_new()) == NULL)
-		return NULL;
+	t = item_list_new();
 
 	item->child = t;
 	t->parent = item;
