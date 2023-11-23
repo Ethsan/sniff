@@ -2,9 +2,10 @@
 #include <pcap.h>
 #include <err.h>
 
+#include "dissector/dissector.h"
 #include "capture.h"
-#include "packet.h"
 #include "item_list.h"
+#include <time.h>
 
 #define SNAPLEN 65535
 #define BUF_TIMEOUT 1000
@@ -13,21 +14,55 @@
 char errbuf[PCAP_ERRBUF_SIZE];
 
 struct context {
-	const char *interface;
 	int datalink;
 	int verbose;
 
-	struct timeval start;
 	int count;
 };
 
 void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 		     const u_char *bytes)
 {
+	struct item *item;
+	struct item_list *sub;
+
 	struct context *c = (typeof(c))user;
-	(void)c;
-	(void)h;
-	(void)bytes;
+	struct packet_info info = { 0 };
+
+	info.header = *h;
+	info.id = c->count++;
+
+	info.items = item_list_new();
+
+	if (h->len < h->caplen)
+		warnx("Packet %i: truncated packet", info.id);
+
+	// Frame info
+	printf("Packet %i: %i bytes on wire, %i bytes captured\n",
+	       info.id, info.header.len, info.header.caplen);
+	item = item_list_add_strf(
+		info.items, "Packet %i: %i bytes on wire, %i bytes captured",
+		info.id, info.header.len, info.header.caplen);
+
+	sub = item_add_sublist(item);
+	item_list_add_strf(sub, "Arrival time: %s", ctime(&info.header.ts.tv_sec));
+	item_list_add_strf(sub, "Frame number: %i", info.id);
+	item_list_add_strf(sub, "Frame length: %i", info.header.len);
+	item_list_add_strf(sub, "Capture length: %i", info.header.caplen);
+
+	switch (c->datalink) {
+	case DLT_EN10MB:
+		dissector_ethernet(&info, bytes, h->caplen);
+		break;
+	case DLT_LINUX_SLL:
+		dissector_linux_sll(&info, bytes, h->caplen);
+		break;
+	default:
+		warnx("Packet %i: unsupported data link type (%d)", info.id,
+		      c->datalink);
+	}
+
+	item_list_free(info.items);
 }
 
 bpf_u_int32 get_netmask(const char *interface)
@@ -92,9 +127,7 @@ void capture(struct options *options)
 
 	struct context context = { .verbose = options->verbose,
 				   .datalink = -1,
-				   .count = 0,
-				   .start = { 0 },
-				   .interface = options->interface };
+				   .count = 0 };
 
 	if (pcap_init(PCAP_CHAR_ENC_UTF_8, errbuf) != 0)
 		errx(EXIT_FAILURE, "pcap_init: %s", errbuf);

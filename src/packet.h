@@ -1,5 +1,6 @@
 #pragma once
 
+#include <pcap.h>
 #include <sys/time.h>
 #include <sys/types.h>
 
@@ -12,16 +13,23 @@ enum address_type {
 	ADDRESS_TYPE_IP6,
 };
 
+#define ADDRESS_LEN 16
+
 struct address {
 	enum address_type type;
 	int len;
 
-	const void *addr;
+	union {
+		u_char mac[6];
+		u_char ip[4];
+		u_char ip6[16];
+	};
 };
 
 enum packet_type {
 	PACKET_TYPE_NONE,
 
+	PACKET_TYPE_SLL,
 	PACKET_TYPE_ETHERNET,
 	PACKET_TYPE_IPV4,
 	PACKET_TYPE_IPV6,
@@ -44,9 +52,8 @@ enum packet_type {
 };
 
 struct packet_info {
-	struct timeval ts;
-	int caplen;
-	int len;
+	struct pcap_pkthdr header;
+	int id;
 
 	struct address dl_src;
 	struct address dl_dst;
@@ -61,5 +68,5 @@ struct packet_info {
 	enum packet_type type;
 	char *summary;
 
-	item_list *data;
+	item_list *items;
 };

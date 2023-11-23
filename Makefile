@@ -9,7 +9,7 @@ CFLAGS += -I$(SRC_DIR)
 
 OUT=sniff
 
-SRC = $(wildcard $(SRC_DIR)/*.c)
+SRC = $(shell find $(SRC_DIR) -iname *.c)
 OBJ = $(SRC:.c=.o)
 
 TEST_SRC = $(shell find $(TEST_DIR) $(SRC_DIR) -iname *.c -not -name $(OUT).c)
