@@ -55,4 +55,6 @@ dkms.conf
 sniff
 test_runner
 
+# Clang tooling
 compile_commands.json
+.cache/
