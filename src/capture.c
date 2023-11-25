@@ -1,11 +1,12 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <pcap.h>
 #include <err.h>
+#include <time.h>
 
 #include "dissector/dissector.h"
 #include "capture.h"
-#include "item_list.h"
-#include <time.h>
+#include "item.h"
 
 #define SNAPLEN 65535
 #define BUF_TIMEOUT 1000
@@ -23,8 +24,8 @@ struct context {
 void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 		     const u_char *bytes)
 {
-	struct item *item;
-	struct item_list *sub;
+	char timebuf[128];
+	item *item;
 
 	struct context *c = (typeof(c))user;
 	struct packet_info info = { 0 };
@@ -32,23 +33,22 @@ void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 	info.header = *h;
 	info.id = c->count++;
 
-	info.items = item_list_new();
-
 	if (h->len < h->caplen)
 		warnx("Packet %i: truncated packet", info.id);
 
-	// Frame info
-	printf("Packet %i: %i bytes on wire, %i bytes captured\n",
-	       info.id, info.header.len, info.header.caplen);
-	item = item_list_add_strf(
+	info.items = item_new_strf("Frame %i", info.id);
+
+	item = item_new_child_strf(
 		info.items, "Packet %i: %i bytes on wire, %i bytes captured",
 		info.id, info.header.len, info.header.caplen);
 
-	sub = item_add_sublist(item);
-	item_list_add_strf(sub, "Arrival time: %s", ctime(&info.header.ts.tv_sec));
-	item_list_add_strf(sub, "Frame number: %i", info.id);
-	item_list_add_strf(sub, "Frame length: %i", info.header.len);
-	item_list_add_strf(sub, "Capture length: %i", info.header.caplen);
+	strftime(timebuf, sizeof(timebuf), "Arrival time: %Y-%m-%d %H:%M:%S",
+		 localtime(&info.header.ts.tv_sec));
+
+	item_new_child_str(item, timebuf);
+	item_new_child_strf(item, "Frame number: %i", info.id);
+	item_new_child_strf(item, "Frame length: %i", info.header.len);
+	item_new_child_strf(item, "Capture length: %i", info.header.caplen);
 
 	switch (c->datalink) {
 	case DLT_EN10MB:
@@ -62,7 +62,10 @@ void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 		      c->datalink);
 	}
 
-	item_list_free(info.items);
+	item_print(info.items, stdout, 0);
+	fprintf(stdout, "\n");
+
+	item_free_all(info.items);
 }
 
 bpf_u_int32 get_netmask(const char *interface)

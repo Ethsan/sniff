@@ -4,7 +4,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
-#include "item_list.h"
+#include "item.h"
 
 enum address_type {
 	ADDRESS_TYPE_NONE,
@@ -68,5 +68,5 @@ struct packet_info {
 	enum packet_type type;
 	char *summary;
 
-	item_list *items;
+	item *items;
 };
