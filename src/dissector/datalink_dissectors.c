@@ -66,13 +66,13 @@ int dissector_ethernet(struct packet_info *pi, const u_char *buffer, size_t len)
 	src = strdupa(ether_ntoa((const struct ether_addr *)eth->ether_shost));
 	dst = strdupa(ether_ntoa((const struct ether_addr *)eth->ether_dhost));
 
-	item = item_new_child_strf(pi->root, "Ethernet II, Src: %s, Dst: %s",
-				   src, dst);
-
+	// clang-format off
+	item = item_new_child_strf(pi->root, "Ethernet II, Src: %s, Dst: %s", src, dst);
 	item_new_child_strf(item, "Destination: %s", dst);
 	item_new_child_strf(item, "Source: %s", src);
 	item_new_child_strf(item, "Type: %s (%hu)", get_eth_type(type), type);
 	item_new_child_strf(item, "Payload: %lu bytes", len - sizeof(*eth));
+	// clang-format on
 
 	return dissector_ethertype(type, pi, buffer, len);
 }
@@ -97,6 +97,7 @@ int dissector_linux_sll(struct packet_info *pi, const u_char *buffer,
 			size_t len)
 {
 	uint16_t pkttype, hatype, halen, protocol;
+	const char *p_name, *src;
 	struct protoent *proto;
 	item *item;
 
@@ -113,38 +114,37 @@ int dissector_linux_sll(struct packet_info *pi, const u_char *buffer,
 	protocol = ntohs(sll->sll_protocol);
 
 	if (halen < ADDRESS_LEN) {
-		if (halen == 0)
-			pi->dl_src.type = ADDRESS_TYPE_NONE;
-		else
+		if (halen == 5) {
 			pi->dl_src.type = ADDRESS_TYPE_MAC;
+			src = ether_ntoa(
+				(const struct ether_addr *)sll->sll_addr);
+		} else {
+			pi->dl_src.type = ADDRESS_TYPE_NONE;
+			src = "Unknown";
+		}
 
 		pi->dl_src.len = halen;
 		memcpy(pi->dl_src.mac, sll->sll_addr, halen);
 		pi->src = pi->dl_src;
 	} else {
 		warnx("Invalid address length: %hu", halen);
+		src = "Unknown";
 	}
 
-	item = item_new_child_strf(pi->root, "Linux cooked capture");
+	if ((proto = getprotobynumber(protocol)) != NULL) {
+		p_name = proto->p_name;
+	} else {
+		p_name = "Unknown";
+	}
 
-	item_new_child_strf(item, "Packet type: %s (%hu)",
-			    get_sll_type(pkttype), pkttype);
+	// clang-format off
+	item = item_new_child_strf(pi->root, "Linux cooked capture");
+	item_new_child_strf(item, "Packet type: %s (%hu)", get_sll_type(pkttype), pkttype);
 	item_new_child_strf(item, "Link layer address type: %hu", hatype);
 	item_new_child_strf(item, "Link layer address length: %hu", halen);
-
-	if (halen == 6) {
-		item_new_child_strf(
-			item, "Source: %s",
-			ether_ntoa((const struct ether_addr *)sll->sll_addr));
-	} else {
-		item_new_child_strf(item, "Source: Unknown");
-	}
-	if ((proto = getprotobynumber(protocol)) != NULL) {
-		item_new_child_strf(item, "Protocol: %s (%hu)", proto->p_name,
-				    protocol);
-	} else {
-		item_new_child_strf(item, "Protocol: %hu", protocol);
-	}
+	item_new_child_strf(item, "Source: %s", src);
+	item_new_child_strf(item, "Protocol: %s (%hu)", p_name, protocol);
+	// clang-format on
 
 	return dissector_ethertype(protocol, pi, buffer, len);
 }
