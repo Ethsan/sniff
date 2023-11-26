@@ -5,8 +5,9 @@
 
 #include "dissector.h"
 #include "item.h"
+#include "utils/string.h"
 
-const char *get_ethernet_type_str(ushort type)
+const char *get_eth_type(ushort type)
 {
 	if (type == ETHERTYPE_PUP)
 		return "PUP";
@@ -41,6 +42,7 @@ int dissector_ethernet(struct packet_info *pi, const u_char *buffer, size_t len)
 {
 	item *item;
 	ushort type;
+	char *src, *dst;
 
 	struct ether_header *eth = (typeof(eth))buffer;
 
@@ -61,44 +63,19 @@ int dissector_ethernet(struct packet_info *pi, const u_char *buffer, size_t len)
 	memcpy(pi->dl_dst.mac, eth->ether_dhost, 6);
 	pi->src = pi->dl_dst;
 
-	// clang-format off
-	item = item_new_child_strf(
-		pi->items,
-		"Ethernet II, Src: %s, Dst: %s",
-		ether_ntoa((const struct ether_addr *)eth->ether_shost),
-		ether_ntoa((const struct ether_addr *)eth->ether_dhost)
-	);
+	src = strdupa(ether_ntoa((const struct ether_addr *)eth->ether_shost));
+	dst = strdupa(ether_ntoa((const struct ether_addr *)eth->ether_dhost));
 
-	item_new_child_strf(
-		item,
-		"Destination: %s",
-		ether_ntoa((const struct ether_addr *)eth->ether_dhost)
-	);
-	item_new_child_strf(
-		item,
-		"Source: %s",
-		ether_ntoa((const struct ether_addr *)eth->ether_shost)
-	);
-	item_new_child_strf(
-		item,
-		"Type: %s (%hu)",
-		get_ethernet_type_str(type), type
-	);
-	item_new_child_strf(
-		item,
-		"Payload: %lu bytes",
-		len - sizeof(*eth)
-	);
-	// clang-format on
+	item = item_new_child_strf(pi->root, "Ethernet II, Src: %s, Dst: %s",
+				   src, dst);
+
+	item_new_child_strf(item, "Destination: %s", dst);
+	item_new_child_strf(item, "Source: %s", src);
+	item_new_child_strf(item, "Type: %s (%hu)", get_eth_type(type), type);
+	item_new_child_strf(item, "Payload: %lu bytes", len - sizeof(*eth));
 
 	return dissector_ethertype(type, pi, buffer, len);
 }
-
-char *sll_packet_type[] = { [LINUX_SLL_HOST] = "Unicast to us",
-			    [LINUX_SLL_BROADCAST] = "Broadcast to us",
-			    [LINUX_SLL_MULTICAST] = "Multicast",
-			    [LINUX_SLL_OTHERHOST] = "Unicast to another host",
-			    [LINUX_SLL_OUTGOING] = "Send by us" };
 
 const char *get_sll_type(uint16_t type)
 {
@@ -148,7 +125,7 @@ int dissector_linux_sll(struct packet_info *pi, const u_char *buffer,
 		warnx("Invalid address length: %hu", halen);
 	}
 
-	item = item_new_child_strf(pi->items, "Linux cooked capture");
+	item = item_new_child_strf(pi->root, "Linux cooked capture");
 
 	item_new_child_strf(item, "Packet type: %s (%hu)",
 			    get_sll_type(pkttype), pkttype);

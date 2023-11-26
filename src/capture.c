@@ -36,10 +36,10 @@ void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 	if (h->len < h->caplen)
 		warnx("Packet %i: truncated packet", info.id);
 
-	info.items = item_new_strf("Frame %i", info.id);
+	info.root = item_new_strf("Frame %i", info.id);
 
 	item = item_new_child_strf(
-		info.items, "Packet %i: %i bytes on wire, %i bytes captured",
+		info.root, "Packet %i: %i bytes on wire, %i bytes captured",
 		info.id, info.header.len, info.header.caplen);
 
 	strftime(timebuf, sizeof(timebuf), "Arrival time: %Y-%m-%d %H:%M:%S",
@@ -62,10 +62,10 @@ void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 		      c->datalink);
 	}
 
-	item_print(info.items, stdout, 0);
+	item_print(info.root, stdout, 0);
 	fprintf(stdout, "\n");
 
-	item_free_all(info.items);
+	item_free_all(info.root);
 }
 
 bpf_u_int32 get_netmask(const char *interface)

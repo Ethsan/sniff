@@ -68,5 +68,5 @@ struct packet_info {
 	enum packet_type type;
 	char *summary;
 
-	item *items;
+	item *root;
 };

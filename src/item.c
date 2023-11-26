@@ -6,6 +6,7 @@
 #include <err.h>
 
 #include "item.h"
+#include "utils/string.h"
 
 struct item {
 	char *str;
@@ -18,38 +19,6 @@ struct item {
 	item *first_child;
 	item *last_child;
 };
-
-char *new_strv(const char *format, va_list args)
-{
-	char *str;
-	size_t size;
-	va_list cp_args;
-
-	va_copy(cp_args, args);
-	size = vsnprintf(NULL, 0, format, cp_args);
-	va_end(cp_args);
-
-	if ((str = malloc(size + 1)) == NULL)
-		err(EXIT_FAILURE, "malloc");
-
-	va_copy(cp_args, args);
-	vsnprintf(str, size + 1, format, cp_args);
-	va_end(cp_args);
-
-	return str;
-}
-
-__attribute__((format(printf, 1, 2))) char *new_str(const char *format, ...)
-{
-	va_list args;
-	char *ret;
-
-	va_start(args, format);
-	ret = new_strv(format, args);
-	va_end(args);
-
-	return ret;
-}
 
 item *item_new()
 {
