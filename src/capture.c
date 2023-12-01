@@ -38,17 +38,17 @@ void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 
 	info.root = item_new_strf("Frame %i", info.id);
 
-	item = item_new_child_strf(
+	item = item_add_strf(
 		info.root, "Packet %i: %i bytes on wire, %i bytes captured",
 		info.id, info.header.len, info.header.caplen);
 
 	strftime(timebuf, sizeof(timebuf), "Arrival time: %Y-%m-%d %H:%M:%S",
 		 localtime(&info.header.ts.tv_sec));
 
-	item_new_child_str(item, timebuf);
-	item_new_child_strf(item, "Frame number: %i", info.id);
-	item_new_child_strf(item, "Frame length: %i", info.header.len);
-	item_new_child_strf(item, "Capture length: %i", info.header.caplen);
+	item_add_str(item, timebuf);
+	item_add_strf(item, "Frame number: %i", info.id);
+	item_add_strf(item, "Frame length: %i", info.header.len);
+	item_add_strf(item, "Capture length: %i", info.header.caplen);
 
 	switch (c->datalink) {
 	case DLT_EN10MB:

@@ -67,11 +67,11 @@ int dissector_ethernet(struct packet_info *pi, const u_char *buffer, size_t len)
 	dst = strdupa(ether_ntoa((const struct ether_addr *)eth->ether_dhost));
 
 	// clang-format off
-	item = item_new_child_strf(pi->root, "Ethernet II, Src: %s, Dst: %s", src, dst);
-	item_new_child_strf(item, "Destination: %s", dst);
-	item_new_child_strf(item, "Source: %s", src);
-	item_new_child_strf(item, "Type: %s (%hu)", get_eth_type(type), type);
-	item_new_child_strf(item, "Payload: %lu bytes", len - sizeof(*eth));
+	item = item_add_strf(pi->root, "Ethernet II, Src: %s, Dst: %s", src, dst);
+	item_add_strf(item, "Destination: %s", dst);
+	item_add_strf(item, "Source: %s", src);
+	item_add_strf(item, "Type: %s (%hu)", get_eth_type(type), type);
+	item_add_strf(item, "Payload: %lu bytes", len - sizeof(*eth));
 	// clang-format on
 
 	return dissector_ethertype(type, pi, buffer, len);
@@ -138,12 +138,12 @@ int dissector_linux_sll(struct packet_info *pi, const u_char *buffer,
 	}
 
 	// clang-format off
-	item = item_new_child_strf(pi->root, "Linux cooked capture");
-	item_new_child_strf(item, "Packet type: %s (%hu)", get_sll_type(pkttype), pkttype);
-	item_new_child_strf(item, "Link layer address type: %hu", hatype);
-	item_new_child_strf(item, "Link layer address length: %hu", halen);
-	item_new_child_strf(item, "Source: %s", src);
-	item_new_child_strf(item, "Protocol: %s (%hu)", p_name, protocol);
+	item = item_add_strf(pi->root, "Linux cooked capture");
+	item_add_strf(item, "Packet type: %s (%hu)", get_sll_type(pkttype), pkttype);
+	item_add_strf(item, "Link layer address type: %hu", hatype);
+	item_add_strf(item, "Link layer address length: %hu", halen);
+	item_add_strf(item, "Source: %s", src);
+	item_add_strf(item, "Protocol: %s (%hu)", p_name, protocol);
 	// clang-format on
 
 	return dissector_ethertype(protocol, pi, buffer, len);

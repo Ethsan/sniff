@@ -106,33 +106,33 @@ void item_set_strfv(item *i, const char *format, va_list args)
 	i->str = str;
 }
 
-item *item_new_child(item *parent)
+item *item_add(item *parent)
 {
 	item *i = item_new();
 	item_add_child(parent, i);
 	return i;
 }
 
-item *item_new_child_str(item *parent, const char *str)
+item *item_add_str(item *parent, const char *str)
 {
 	item *i = item_new_str(str);
 	item_add_child(parent, i);
 	return i;
 }
 
-item *item_new_child_strf(item *parent, const char *format, ...)
+item *item_add_strf(item *parent, const char *format, ...)
 {
 	va_list args;
 	item *i;
 
 	va_start(args, format);
-	i = item_new_child_strfv(parent, format, args);
+	i = item_add_strfv(parent, format, args);
 	va_end(args);
 
 	return i;
 }
 
-item *item_new_child_strfv(item *parent, const char *format, va_list args)
+item *item_add_strfv(item *parent, const char *format, va_list args)
 {
 	item *i = item_new_strfv(format, args);
 	item_add_child(parent, i);
@@ -183,7 +183,7 @@ int print_indented_item(FILE *stream, item *i, int max_depth, item *root)
 	print_indent(stream, i, root);
 
 	if (i->next == NULL) {
-		if (fprintf(stream, "└── ") < 0)
+		if (fprintf(stream, "╰── ") < 0)
 			return -1;
 	} else {
 		if (fprintf(stream, "├── ") < 0)

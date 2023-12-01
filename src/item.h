@@ -22,14 +22,14 @@ item_set_strf(item *item, const char *format, ...);
 
 void item_set_strfv(item *item, const char *format, va_list args);
 
-item *item_new_child(item *parent);
+item *item_add(item *parent);
 
-item *item_new_child_str(item *parent, const char *str);
+item *item_add_str(item *parent, const char *str);
 
 item *__attribute((format(printf, 2, 3)))
-item_new_child_strf(item *parent, const char *format, ...);
+item_add_strf(item *parent, const char *format, ...);
 
-item *item_new_child_strfv(item *parent, const char *format, va_list args);
+item *item_add_strfv(item *parent, const char *format, va_list args);
 
 void item_free(item *item);
 

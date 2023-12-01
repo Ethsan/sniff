@@ -157,7 +157,7 @@ const char *get_opt_class(int class)
 
 int dissector_ip_options(item *items, const u_char *buffer, size_t len)
 {
-	item *options = item_new_child_strf(items, "Options");
+	item *options = item_add_strf(items, "Options");
 	int count = 0;
 	int only_opt = 0; // 0 = none, -1 multiple, >0 = only one
 
@@ -169,12 +169,12 @@ int dissector_ip_options(item *items, const u_char *buffer, size_t len)
 		int copy = IPOPT_COPIED(buffer[0]);
 
 		// clang-format off
-		item *option = item_new_child_strf(options, "Option %d: %s", i, get_option(num));
+		item *option = item_add_strf(options, "Option %d: %s", i, get_option(num));
 
-		item *type = item_new_child_strf(option, "Type: (%d)", buffer[0]);
-		item_new_child_strf(type, "Copy on fragmentation: %s (0x%02x)", copy ? "Yes" : "No", copy);
-		item_new_child_strf(type, "Class: %s (0x%02x)", get_opt_class(class), class);
-		item_new_child_strf(type, "Number: %s (0x%02x)", get_option(num), num);
+		item *type = item_add_strf(option, "Type: (%d)", buffer[0]);
+		item_add_strf(type, "Copy on fragmentation: %s (0x%02x)", copy ? "Yes" : "No", copy);
+		item_add_strf(type, "Class: %s (0x%02x)", get_opt_class(class), class);
+		item_add_strf(type, "Number: %s (0x%02x)", get_option(num), num);
 		// clang-format on
 
 		buffer++;
@@ -196,9 +196,9 @@ int dissector_ip_options(item *items, const u_char *buffer, size_t len)
 
 		// clang-format off
 		item_set_strf(option, "Option %d: %s (%i bytes)", i, get_option(num), buffer[0]);
-		item_new_child_strf(option, "Length: %d", buffer[0]);
+		item_add_strf(option, "Length: %d", buffer[0]);
 		if (buffer[0] > 2)
-			item_new_child_strf(option, "Data: %s", hexdumpa(buffer + 2, buffer[0] - 2));
+			item_add_strf(option, "Data: %s", hexdumpa(buffer + 2, buffer[0] - 2));
 		// clang-format on
 
 		len -= buffer[1];
@@ -223,7 +223,7 @@ int dissector_ipv4(struct packet_info *pi, const u_char *buffer, size_t len)
 	const char *proto;
 
 	struct iphdr *ip = (typeof(ip))buffer;
-	item *item = item_new_child_strf(pi->root, "IPv4");
+	item *item = item_add_strf(pi->root, "IPv4");
 
 	buffer += sizeof(*ip);
 	len -= sizeof(*ip);
@@ -258,18 +258,18 @@ int dissector_ipv4(struct packet_info *pi, const u_char *buffer, size_t len)
 
 	// clang-format off
 	item_set_strf(item, "IPv4, Src: %s, Dst: %s", src, dst);
-	item_new_child_strf(item, "Version: %d", ip->version);
-	item_new_child_strf(item, "Header Length: %d", ip->ihl);
-	item_new_child_strf(item, "Differentiated Services Field: 0x%02x", ip->tos);
-	item_new_child_strf(item, "Total Length: %d", length);
-	item_new_child_strf(item, "Identification: 0x%04x", id);
-	item_new_child_strf(item, "Flags: 0x%04x", off);
-	item_new_child_strf(item, "Fragment Offset: %d", off & 0x1fff);
-	item_new_child_strf(item, "Time to Live: %d", ip->ttl);
-	item_new_child_strf(item, "Protocol: %s (%d)", proto, ip->protocol);
-	item_new_child_strf(item, "Header Checksum: 0x%04x [Not verified]", sum); // TODO
-	item_new_child_strf(item, "Source: %s", src);
-	item_new_child_strf(item, "Destination: %s", dst);
+	item_add_strf(item, "Version: %d", ip->version);
+	item_add_strf(item, "Header Length: %d", ip->ihl);
+	item_add_strf(item, "Differentiated Services Field: 0x%02x", ip->tos);
+	item_add_strf(item, "Total Length: %d", length);
+	item_add_strf(item, "Identification: 0x%04x", id);
+	item_add_strf(item, "Flags: 0x%04x", off);
+	item_add_strf(item, "Fragment Offset: %d", off & 0x1fff);
+	item_add_strf(item, "Time to Live: %d", ip->ttl);
+	item_add_strf(item, "Protocol: %s (%d)", proto, ip->protocol);
+	item_add_strf(item, "Header Checksum: 0x%04x [Not verified]", sum); // TODO
+	item_add_strf(item, "Source: %s", src);
+	item_add_strf(item, "Destination: %s", dst);
 	// clang-format on
 
 	if (ip->ihl > 5) {
@@ -289,7 +289,7 @@ malformed:
 
 int dissector_ipv6(struct packet_info *pi, const u_char *buffer, size_t len)
 {
-	item *item = item_new_child_strf(pi->root, "IPv6");
+	item *item = item_add_strf(pi->root, "IPv6");
 	uint32_t flow;
 	uint16_t length;
 	char src[INET6_ADDRSTRLEN], dst[INET6_ADDRSTRLEN];
@@ -325,12 +325,12 @@ int dissector_ipv6(struct packet_info *pi, const u_char *buffer, size_t len)
 
 	// clang-format off
 	item_set_strf(item, "IPv6, Src: %s, Dst: %s", src, dst);
-	item_new_child_strf(item, "Version: %d", ip->ip6_vfc >> 4);
-	item_new_child_strf(item, "Traffic Class: 0x%02x", ip->ip6_vfc & 0x0f);
-	item_new_child_strf(item, "Flow Label: 0x%05x", flow & 0x000fffff);
-	item_new_child_strf(item, "Payload Length: %d", length);
-	item_new_child_strf(item, "Hop Limit: %d", ip->ip6_hlim);
-	item_new_child_strf(item, "Next Header: (%s) %d", proto, ip->ip6_nxt);
+	item_add_strf(item, "Version: %d", ip->ip6_vfc >> 4);
+	item_add_strf(item, "Traffic Class: 0x%02x", ip->ip6_vfc & 0x0f);
+	item_add_strf(item, "Flow Label: 0x%05x", flow & 0x000fffff);
+	item_add_strf(item, "Payload Length: %d", length);
+	item_add_strf(item, "Hop Limit: %d", ip->ip6_hlim);
+	item_add_strf(item, "Next Header: (%s) %d", proto, ip->ip6_nxt);
 	// clang-format on
 
 	if (length > len)
