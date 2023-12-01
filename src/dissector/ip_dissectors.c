@@ -1,3 +1,5 @@
+#include "packet.h"
+#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <stddef.h>
@@ -138,7 +140,7 @@ const char *get_option(int type)
 	}
 }
 
-const char *get_class(int class)
+const char *get_opt_class(int class)
 {
 	switch (class) {
 	case IPOPT_CONTROL:
@@ -153,11 +155,11 @@ const char *get_class(int class)
 	}
 }
 
-int dissector_ip_options(item *options, const u_char *buffer, size_t len)
+int dissector_ip_options(item *items, const u_char *buffer, size_t len)
 {
-	item *option, *type;
-
+	item *options = item_new_child_strf(items, "Options");
 	int count = 0;
+	int only_opt = 0; // 0 = none, -1 multiple, >0 = only one
 
 	while (len > 0) {
 		int i = count++;
@@ -166,17 +168,13 @@ int dissector_ip_options(item *options, const u_char *buffer, size_t len)
 		int class = buffer[0] & IPOPT_CLASS_MASK;
 		int copy = IPOPT_COPIED(buffer[0]);
 
-		const char *num_s = get_option(num);
-		const char *copy_s = copy ? "Yes" : "No";
-		const char *class_s = get_class(class);
-
 		// clang-format off
-		option = item_new_child_strf(options, "Option %d: %s", i, num_s);
+		item *option = item_new_child_strf(options, "Option %d: %s", i, get_option(num));
 
-		type = item_new_child_strf(option, "Type: (%d)", buffer[0]);
-		item_new_child_strf(type, "Copy on fragmentation: %s (0x%02x)", copy_s, copy);
-		item_new_child_strf(type, "Class: %s (0x%02x)", class_s, class);
-		item_new_child_strf(type, "Number: %s (0x%02x)", num_s, num);
+		item *type = item_new_child_strf(option, "Type: (%d)", buffer[0]);
+		item_new_child_strf(type, "Copy on fragmentation: %s (0x%02x)", copy ? "Yes" : "No", copy);
+		item_new_child_strf(type, "Class: %s (0x%02x)", get_opt_class(class), class);
+		item_new_child_strf(type, "Number: %s (0x%02x)", get_option(num), num);
 		// clang-format on
 
 		buffer++;
@@ -186,12 +184,18 @@ int dissector_ip_options(item *options, const u_char *buffer, size_t len)
 			break;
 		if (num == IPOPT_NOP)
 			continue;
+
+		if (only_opt == 0)
+			only_opt = num;
+		else if (only_opt != num)
+			only_opt = -1;
+
 		if (buffer[0] > MAX_IPOPTLEN)
 			return -1;
 		// TODO: Parse options
 
 		// clang-format off
-		item_set_strf(option, "Options %d: %s (%i bytes)", i, num_s, buffer[0]);
+		item_set_strf(option, "Option %d: %s (%i bytes)", i, get_option(num), buffer[0]);
 		item_new_child_strf(option, "Length: %d", buffer[0]);
 		if (buffer[0] > 2)
 			item_new_child_strf(option, "Data: %s", hexdumpa(buffer + 2, buffer[0] - 2));
@@ -203,16 +207,23 @@ int dissector_ip_options(item *options, const u_char *buffer, size_t len)
 	if (len < 0)
 		return -1;
 
-	return count;
+	if (count == 0)
+		item_set_strf(options, "Options: None");
+	else if (only_opt > 0)
+		item_set_strf(options, "Option: %s", get_option(only_opt));
+	else
+		item_set_strf(options, "Options: %d", count);
+	return 0;
 }
 
 int dissector_ipv4(struct packet_info *pi, const u_char *buffer, size_t len)
 {
-	item *item, *options;
 	int length, id, off, sum;
-	const char *src, *dst, *proto;
+	char src[INET_ADDRSTRLEN], dst[INET_ADDRSTRLEN];
+	const char *proto;
 
 	struct iphdr *ip = (typeof(ip))buffer;
+	item *item = item_new_child_strf(pi->root, "IPv4");
 
 	buffer += sizeof(*ip);
 	len -= sizeof(*ip);
@@ -234,12 +245,19 @@ int dissector_ipv4(struct packet_info *pi, const u_char *buffer, size_t len)
 	memcpy(pi->dl_dst.ip, &ip->daddr, 4);
 	pi->dst = pi->dl_dst;
 
-	src = strdupa(inet_ntoa(*(struct in_addr *)&ip->saddr));
-	dst = strdupa(inet_ntoa(*(struct in_addr *)&ip->daddr));
+	if (inet_ntop(AF_INET, &ip->saddr, src, INET_ADDRSTRLEN) == NULL) {
+		warn("inet_ntop");
+		return -1;
+	}
+	if (inet_ntop(AF_INET, &ip->daddr, dst, INET_ADDRSTRLEN) == NULL) {
+		warn("inet_ntop");
+		return -1;
+	}
+
 	proto = get_protocol(ip->protocol, 0);
 
 	// clang-format off
-	item = item_new_child_strf(pi->root, "IPv4, Src: %s, Dst: %s", src, dst);
+	item_set_strf(item, "IPv4, Src: %s, Dst: %s", src, dst);
 	item_new_child_strf(item, "Version: %d", ip->version);
 	item_new_child_strf(item, "Header Length: %d", ip->ihl);
 	item_new_child_strf(item, "Differentiated Services Field: 0x%02x", ip->tos);
@@ -249,31 +267,78 @@ int dissector_ipv4(struct packet_info *pi, const u_char *buffer, size_t len)
 	item_new_child_strf(item, "Fragment Offset: %d", off & 0x1fff);
 	item_new_child_strf(item, "Time to Live: %d", ip->ttl);
 	item_new_child_strf(item, "Protocol: %s (%d)", proto, ip->protocol);
-	// TODO: Check checksum
-	item_new_child_strf(item, "Header Checksum: 0x%04x [Not verified]", sum);
+	item_new_child_strf(item, "Header Checksum: 0x%04x [Not verified]", sum); // TODO
 	item_new_child_strf(item, "Source: %s", src);
 	item_new_child_strf(item, "Destination: %s", dst);
 	// clang-format on
 
 	if (ip->ihl > 5) {
-		int n;
-
 		size_t size = (ip->ihl - 5) * 4;
 		if (size > len)
-			return -1;
-
-		options =
-			item_new_child_strf(item, "Options (%zu bytes)", size);
-		n = dissector_ip_options(options, buffer, (ip->ihl - 5) * 4);
-		if (n < 0)
-			return -1;
-		item_set_strf(options, "Options: %i (%zu bytes)", n, size);
+			goto malformed;
+		if (dissector_ip_options(item, buffer, size) < 0)
+			goto malformed;
 	}
 
 	return dissector_transport(ip->protocol, pi, buffer, len);
+
+malformed:
+	item_set_strf(item, "Malformed IPv4");
+	return -1;
 }
 
 int dissector_ipv6(struct packet_info *pi, const u_char *buffer, size_t len)
 {
-	return 0;
+	item *item = item_new_child_strf(pi->root, "IPv6");
+	uint32_t flow;
+	uint16_t length;
+	char src[INET6_ADDRSTRLEN], dst[INET6_ADDRSTRLEN];
+	const char *proto;
+
+	struct ip6_hdr *ip = (typeof(ip))buffer;
+
+	buffer += sizeof(*ip);
+	len -= sizeof(*ip);
+
+	if (len < 0)
+		goto malformed;
+
+	flow = ntohl(ip->ip6_flow);
+	length = ntohs(ip->ip6_plen);
+
+	pi->dl_src.type = ADDRESS_TYPE_IP6;
+	pi->dl_src.len = 16;
+	memcpy(pi->dl_src.ip6, &ip->ip6_src, 16);
+	pi->src = pi->dl_src;
+
+	pi->dl_dst.type = ADDRESS_TYPE_IP6;
+	pi->dl_dst.len = 16;
+	memcpy(pi->dl_dst.ip6, &ip->ip6_dst, 16);
+	pi->dl_dst = pi->dl_dst;
+
+	if (inet_ntop(AF_INET6, &ip->ip6_src, src, sizeof(src)) == NULL)
+		return -1;
+	if (inet_ntop(AF_INET6, &ip->ip6_dst, dst, sizeof(dst)) == NULL)
+		return -1;
+
+	proto = get_protocol(ip->ip6_nxt, 1);
+
+	// clang-format off
+	item_set_strf(item, "IPv6, Src: %s, Dst: %s", src, dst);
+	item_new_child_strf(item, "Version: %d", ip->ip6_vfc >> 4);
+	item_new_child_strf(item, "Traffic Class: 0x%02x", ip->ip6_vfc & 0x0f);
+	item_new_child_strf(item, "Flow Label: 0x%05x", flow & 0x000fffff);
+	item_new_child_strf(item, "Payload Length: %d", length);
+	item_new_child_strf(item, "Hop Limit: %d", ip->ip6_hlim);
+	item_new_child_strf(item, "Next Header: (%s) %d", proto, ip->ip6_nxt);
+	// clang-format on
+
+	if (length > len)
+		goto malformed;
+
+	return dissector_transport(ip->ip6_nxt, pi, buffer, length);
+
+malformed:
+	item_set_strf(item, "Malformed IPv6");
+	return -1;
 }
