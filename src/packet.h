@@ -23,6 +23,7 @@ struct address {
 		u_char mac[6];
 		u_char ip[4];
 		u_char ip6[16];
+		u_char raw[ADDRESS_LEN];
 	};
 };
 
@@ -50,6 +51,13 @@ enum packet_type {
 	PACKET_TYPE_SCTP,
 	PACKET_TYPE_LDAP,
 };
+
+#define SET_ADDR(addr, type, len, ptr)       \
+	do {                                 \
+		addr->type = type;           \
+		addr->len = len;             \
+		memcpy(addr->mac, ptr, len); \
+	} while (0);
 
 struct packet_info {
 	struct pcap_pkthdr header;

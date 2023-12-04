@@ -70,3 +70,5 @@ static inline char *hexdump(const void *data, size_t size)
 			sprintf(__str + __i * 3, "%02x ", __ptr[__i]); \
 		__str;                                                 \
 	})
+
+#define ETHER_ADDRSTRLEN 19
