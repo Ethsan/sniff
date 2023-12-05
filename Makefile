@@ -27,7 +27,13 @@ test_runner: $(TEST_OBJ)
 compile_commands.json: clean
 	bear -- make all
 
-.PHONY: clean format test all
+$(SRC_DIR)/utils/udp_port.h:
+	$(SRC_DIR)/utils/gen_udp_port.fish > $@
+
+$(SRC_DIR)/utils/tcp_port.h:
+	$(SRC_DIR)/utils/gen_tcp_port.fish > $@
+
+.PHONY: clean clean_all format test all
 
 all: $(OUT) test_runner
 
@@ -36,6 +42,9 @@ test: test_runner
 
 clean:
 	rm -f $(OUT) $(OBJ) $(TEST_OBJ) test_runner
+
+clean_all: clean
+	rm -f $(SRC_DIR)/utils/udp_port.h $(SRC_DIR)/utils/tcp_port.h
 
 format:
 	find $(SRC_DIR) $(TEST_DIR) -iname *.h -o -iname *.c | xargs clang-format --verbose -i
