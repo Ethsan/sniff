@@ -4,8 +4,9 @@ LDLIBS = -lpcap
 
 SRC_DIR=src
 TEST_DIR=test
+LIB_DIR=lib
 
-CFLAGS += -I$(SRC_DIR)
+CFLAGS += -I$(SRC_DIR) -I$(LIB_DIR)
 
 OUT=sniff
 
