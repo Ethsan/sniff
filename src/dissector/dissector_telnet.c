@@ -1,4 +1,5 @@
 #include "dissector/dissector.h"
+
 #include <arpa/telnet.h>
 #include <string.h>
 
@@ -40,8 +41,9 @@ int parse_iac(item *info, const u_char *buffer, size_t len)
 	const char *command = get_command(buffer[0]);
 	const char *subcommand = get_subcommand(buffer[1]);
 
-	item_add_strf(info, "Command: %s", command);
-	item_add_strf(info, "Subcommand: %s", subcommand);
+	item *iac = item_add_strf(info, "%s %s", command, subcommand);
+	item_add_strf(iac, "Command: %s", command);
+	item_add_strf(iac, "Subcommand: %s", subcommand);
 
 	return 2; // Consumed 2 bytes
 }
@@ -54,6 +56,7 @@ const u_char *add_data(item *info, const u_char *start, const u_char *end)
 	char str[end - start + 1];
 	memcpy(str, start, end - start);
 
+	// Simple sanitization
 	for (int i = 0; i < end - start; i++) {
 		char c = start[i];
 		if (c == '\r' || c == '\n')
