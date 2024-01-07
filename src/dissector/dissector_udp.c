@@ -6,6 +6,16 @@
 #include "utils/udp_port.h"
 #include "utils/string.h"
 
+int dissector_next_layer(struct packet_info *pi, const u_char *buffer,
+			 size_t len, uint16_t src, uint16_t dst)
+{
+	if (src == 53 || dst == 53)
+		return dissector_dns(pi, buffer, len);
+	else if (src == 67 || dst == 67 || src == 68 || dst == 68)
+		return dissector_bootp(pi, buffer, len);
+	return 0;
+}
+
 int dissector_udp(struct packet_info *pi, const u_char *buffer, size_t len)
 {
 	uint16_t src, dst, ulen, sum;
@@ -32,7 +42,8 @@ int dissector_udp(struct packet_info *pi, const u_char *buffer, size_t len)
 		goto truncated;
 	}
 
-	return 0;
+	return dissector_next_layer(pi, buffer + sizeof(struct udphdr),
+				    len - sizeof(struct udphdr), src, dst);
 
 truncated:
 	warnx("Malformed TCP header");

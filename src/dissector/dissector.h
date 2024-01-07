@@ -47,3 +47,5 @@ int dissector_telnet(struct packet_info *pi, const u_char *buffer, size_t len);
 int dissector_sctp(struct packet_info *pi, const u_char *buffer, size_t len);
 
 int dissector_ldap(struct packet_info *pi, const u_char *buffer, size_t len);
+
+int dissector_bootp(struct packet_info *pi, const u_char *buffer, size_t len);
