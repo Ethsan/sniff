@@ -34,7 +34,7 @@ $(SRC_DIR)/utils/udp_port.h:
 $(SRC_DIR)/utils/tcp_port.h:
 	$(SRC_DIR)/utils/gen_tcp_port.fish > $@
 
-.PHONY: clean clean_all format test all
+.PHONY: clean clean_all format test all help
 
 all: $(OUT) test_runner
 
@@ -49,3 +49,11 @@ clean_all: clean
 
 format:
 	find $(SRC_DIR) $(TEST_DIR) -iname *.h -o -iname *.c | xargs clang-format --verbose -i
+
+help:
+	@echo "Makefile commands:"
+	@echo "all - Compiles the main program and the test runner"
+	@echo "test - Runs the test runner"
+	@echo "clean - Removes the main program, object files, and the test runner"
+	@echo "clean_all - Performs 'clean' and also removes generated header files"
+	@echo "format - Formats all .h and .c files using clang-format"
