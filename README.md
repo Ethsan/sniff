@@ -1,4 +1,4 @@
-# Sniff is a simple network sniffer
+## Sniff is a simple network sniffer
 
 This is a school project
 
@@ -43,3 +43,8 @@ NOTE: It required ```bear```
 # Test
 
 No test are currently implemented.
+
+# Git history
+
+I have tried my best on this project to keep the git history as clean as
+possible, by following convention and good practices.
