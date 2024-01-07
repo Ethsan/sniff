@@ -1,11 +1,10 @@
-#include "packet.h"
-#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/ip6.h>
 #include <stddef.h>
 #include <string.h>
 
 #include "dissector.h"
+#include "packet.h"
 #include "utils/string.h"
 
 const char *get_protocol(int protocol, int is_ipv6)
@@ -245,11 +244,11 @@ int dissector_ipv4(struct packet_info *pi, const u_char *buffer, size_t len)
 	memcpy(pi->dl_dst.ip, &ip->daddr, 4);
 	pi->dst = pi->dl_dst;
 
-	if (inet_ntop(AF_INET, &ip->saddr, src, INET_ADDRSTRLEN) == NULL) {
+	if (inet_ntop(AF_INET, &ip->saddr, src, sizeof(src)) == NULL) {
 		warn("inet_ntop");
 		return -1;
 	}
-	if (inet_ntop(AF_INET, &ip->daddr, dst, INET_ADDRSTRLEN) == NULL) {
+	if (inet_ntop(AF_INET, &ip->daddr, dst, sizeof(dst)) == NULL) {
 		warn("inet_ntop");
 		return -1;
 	}
