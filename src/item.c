@@ -223,3 +223,13 @@ int item_print(item *root, FILE *stream, int max_depth)
 		return -1;
 	return print_list(stream, root, max_depth, root);
 }
+
+item *item_get_last_child(item *i)
+{
+	return i->last_child;
+}
+
+const char *item_get_str(item *i)
+{
+	return i->str;
+}

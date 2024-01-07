@@ -39,3 +39,7 @@ If you use clangd, you may want to generate the compile_commands.json, so simply
 make compile_commands.json
 ```
 NOTE: It required ```bear```
+
+# Test
+
+No test are currently implemented.

@@ -1,7 +1,9 @@
+#include <netinet/ether.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <pcap.h>
 #include <err.h>
+#include <string.h>
 #include <time.h>
 
 #include "dissector/dissector.h"
@@ -17,9 +19,44 @@ char errbuf[PCAP_ERRBUF_SIZE];
 struct context {
 	int datalink;
 	int verbose;
-
 	int count;
 };
+
+void print_line(struct packet_info info, FILE *stream)
+{
+	char src[INET6_ADDRSTRLEN], dst[INET6_ADDRSTRLEN];
+
+	switch (info.src.type) {
+	case ADDRESS_TYPE_IP:
+		inet_ntop(AF_INET, info.src.ip, src, sizeof(src));
+		break;
+	case ADDRESS_TYPE_IP6:
+		inet_ntop(AF_INET6, info.src.ip, src, sizeof(src));
+		break;
+	case ADDRESS_TYPE_MAC:
+		strcpy(src, ether_ntoa((struct ether_addr *)info.src.mac));
+		break;
+	default:
+		strcpy(src, "Unknown");
+	}
+	switch (info.dst.type) {
+	case ADDRESS_TYPE_IP:
+		inet_ntop(AF_INET, info.dst.ip, dst, sizeof(dst));
+		break;
+	case ADDRESS_TYPE_IP6:
+		inet_ntop(AF_INET6, info.dst.ip, dst, sizeof(dst));
+		break;
+	case ADDRESS_TYPE_MAC:
+		strcpy(dst, ether_ntoa((struct ether_addr *)info.dst.mac));
+		break;
+	default:
+		strcpy(dst, "Unknown");
+	}
+
+	item *proto = item_get_last_child(info.root);
+	fprintf(stream, "%-7i %-7li %-15s -> %-15s %-15s\n", info.id,
+		info.header.ts.tv_sec, src, dst, item_get_str(proto));
+}
 
 void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 		     const u_char *bytes)
@@ -38,9 +75,9 @@ void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 
 	info.root = item_new_strf("Frame %i", info.id);
 
-	item = item_add_strf(
-		info.root, "Packet %i: %i bytes on wire, %i bytes captured",
-		info.id, info.header.len, info.header.caplen);
+	item = item_add_strf(info.root,
+			     "Packet %i: %i bytes on wire, %i bytes captured",
+			     info.id, info.header.len, info.header.caplen);
 
 	strftime(timebuf, sizeof(timebuf), "Arrival time: %Y-%m-%d %H:%M:%S",
 		 localtime(&info.header.ts.tv_sec));
@@ -62,7 +99,14 @@ void capture_handler(u_char *user, const struct pcap_pkthdr *h,
 		      c->datalink);
 	}
 
-	item_print(info.root, stdout, 0);
+	if (c->verbose == 1) {
+		print_line(info, stdout);
+	} else if (c->verbose == 2) {
+		item_print(info.root, stdout, 1);
+	} else if (c->verbose == 3) {
+		item_print(info.root, stdout, 0);
+	}
+
 	fprintf(stdout, "\n");
 
 	item_free_all(info.root);
@@ -109,7 +153,8 @@ pcap_t *get_pcap_t(const char *interface, const char *file)
 				      BUF_TIMEOUT, errbuf);
 
 		if (pcap == NULL || errbuf[0] != '\0')
-			warnx("pcap_open_live: %s", errbuf); // error or warning
+			warnx("pcap_open_live: %s",
+			      errbuf); // error or warning
 
 	} else if (file != NULL) {
 		pcap = pcap_open_offline(file, errbuf);
@@ -157,6 +202,10 @@ void capture(struct options *options)
 		if (set_filter(pcap, options->filter, netmask) < 0)
 			errx(EXIT_FAILURE, "set_filter failed");
 	}
+
+	if (context.verbose == 1)
+		fprintf(stdout,
+			"No.     Time           Source                Destination           Protocol\n");
 
 	ret = pcap_loop(pcap, -1, capture_handler, (u_char *)&context);
 	if (ret != 0)

@@ -36,3 +36,7 @@ void item_free(item *item);
 void item_free_all(item *item);
 
 int item_print(item *item, FILE *out, int max_depth);
+
+item *item_get_last_child(item *item);
+
+const char *item_get_str(item *item);
