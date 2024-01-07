@@ -250,6 +250,9 @@ int dissector_tcp(struct packet_info *pi, const u_char *buffer, size_t len)
 
 	f = tcp->th_flags + (tcp->th_x2 << 8);
 
+	pi->port_dst = dst;
+	pi->port_src = src;
+
 	// clang-format off
 	item_set_strf(items, "Transmission Control Protocol, Src Port: %d, Dst Port: %d, Seq: %u, Ack: %u, Len: %zu", src, dst, seq, ack, len - tcp->doff * 4);
 	item_add_strf(items, "Source Port: %s (%d)", get_tcp_port(src), src);
@@ -276,9 +279,6 @@ int dissector_tcp(struct packet_info *pi, const u_char *buffer, size_t len)
 	item_add_strf(flags, ".... .... ...%c = Fin: %s", IS_FIN(f) ? '1' : '0', IS_FIN(f) ? "Set" : "Not set");
 	// clang-format on
 
-	buffer += sizeof(struct tcphdr);
-	len -= sizeof(struct tcphdr);
-
 	int opt_len = tcp->doff * 4 - sizeof(struct tcphdr);
 
 	if (opt_len < 0) {
@@ -286,8 +286,12 @@ int dissector_tcp(struct packet_info *pi, const u_char *buffer, size_t len)
 		goto malformed;
 	}
 
-	if (opt_len > 0 && dissect_opt(items, buffer, opt_len) < 0)
+	if (opt_len > 0 &&
+	    dissect_opt(items, buffer + sizeof(struct tcphdr), opt_len) < 0)
 		goto malformed;
+
+	buffer += tcp->doff * 4;
+	len -= tcp->doff * 4;
 
 	if (len > 0)
 		return dissector_payload(pi, buffer, len);

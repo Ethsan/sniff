@@ -47,6 +47,9 @@ int dissector_udp(struct packet_info *pi, const u_char *buffer, size_t len)
 	ulen = ntohs(udp->uh_ulen);
 	sum = ntohs(udp->uh_sum);
 
+	pi->port_dst = dst;
+	pi->port_src = src;
+
 	item_add_strf(items, "Source Port: %s", get_udp_port(src));
 	item_add_strf(items, "Destination Port: %s", get_udp_port(dst));
 	item_add_strf(items, "Length: %u", ulen);
