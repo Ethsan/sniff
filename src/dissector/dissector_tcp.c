@@ -142,6 +142,34 @@ const char *get_opt_code(unsigned char code)
 	}
 }
 
+static int dissector_payload(struct packet_info *pi, const u_char *buffer,
+			     size_t len)
+{
+	int src = pi->port_src, dst = pi->port_dst;
+
+	if (src == 80 || dst == 80) // HTTP
+		return dissector_http(pi, buffer, len);
+	else if (src == 53 || dst == 53) // DNS
+		return dissector_dns(pi, buffer, len);
+	else if (src == 67 || dst == 67 || src == 68 || dst == 68) // DHCP
+		return dissector_bootp(pi, buffer, len);
+	else if (src == 20 || dst == 20 || src == 21 || dst == 21) // FTP
+		return dissector_ftp(pi, buffer, len);
+	else if (src == 23 || dst == 23) // Telnet
+		return dissector_telnet(pi, buffer, len);
+	else if (src == 22 || dst == 22) // SSH
+		return dissector_ssh(pi, buffer, len);
+	else if (src == 25 || dst == 25) // SMTP
+		return dissector_smtp(pi, buffer, len);
+	else if (src == 36412 || dst == 36412) // SFTP
+		return dissector_sctp(pi, buffer, len);
+	else if (src == 110 || dst == 110) // POP3
+		return dissector_pop(pi, buffer, len);
+	else if (src == 143 || dst == 143) // IMAP
+		return dissector_imap(pi, buffer, len);
+	return 0;
+}
+
 int dissect_opt(item *items, const u_char *buffer, size_t len)
 {
 	item *item, *opt = item_add(items);
@@ -211,9 +239,6 @@ int dissector_tcp(struct packet_info *pi, const u_char *buffer, size_t len)
 
 	struct tcphdr *tcp = (struct tcphdr *)buffer;
 
-	buffer += sizeof(struct tcphdr);
-	len -= sizeof(struct tcphdr);
-
 	src = ntohs(tcp->source);
 	dst = ntohs(tcp->dest);
 	win = ntohs(tcp->window);
@@ -226,7 +251,7 @@ int dissector_tcp(struct packet_info *pi, const u_char *buffer, size_t len)
 	f = tcp->th_flags + (tcp->th_x2 << 8);
 
 	// clang-format off
-	item_set_strf(items, "Transmission Control Protocol, Src Port: %d, Dst Port: %d, Seq: %u, Ack: %u, Len: %zu", src, dst, seq, ack, len);
+	item_set_strf(items, "Transmission Control Protocol, Src Port: %d, Dst Port: %d, Seq: %u, Ack: %u, Len: %zu", src, dst, seq, ack, len - tcp->doff * 4);
 	item_add_strf(items, "Source Port: %s (%d)", get_tcp_port(src), src);
 	item_add_strf(items, "Destination Port: %s (%d)", get_tcp_port(dst), dst);
 	item_add_strf(items, "Sequence number: %u", seq);
@@ -251,6 +276,9 @@ int dissector_tcp(struct packet_info *pi, const u_char *buffer, size_t len)
 	item_add_strf(flags, ".... .... ...%c = Fin: %s", IS_FIN(f) ? '1' : '0', IS_FIN(f) ? "Set" : "Not set");
 	// clang-format on
 
+	buffer += sizeof(struct tcphdr);
+	len -= sizeof(struct tcphdr);
+
 	int opt_len = tcp->doff * 4 - sizeof(struct tcphdr);
 
 	if (opt_len < 0) {
@@ -260,6 +288,9 @@ int dissector_tcp(struct packet_info *pi, const u_char *buffer, size_t len)
 
 	if (opt_len > 0 && dissect_opt(items, buffer, opt_len) < 0)
 		goto malformed;
+
+	if (len > 0)
+		return dissector_payload(pi, buffer, len);
 
 	return 0;
 

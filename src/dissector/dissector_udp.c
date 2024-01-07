@@ -6,13 +6,28 @@
 #include "utils/udp_port.h"
 #include "utils/string.h"
 
-int dissector_next_layer(struct packet_info *pi, const u_char *buffer,
-			 size_t len, uint16_t src, uint16_t dst)
+static int dissector_payload(struct packet_info *pi, const u_char *buffer,
+			     size_t len, uint16_t src, uint16_t dst)
 {
-	if (src == 53 || dst == 53)
+	if (src == 53 || dst == 53) // DNS
 		return dissector_dns(pi, buffer, len);
-	else if (src == 67 || dst == 67 || src == 68 || dst == 68)
+	else if (src == 67 || dst == 67 || src == 68 || dst == 68) // DHCP
 		return dissector_bootp(pi, buffer, len);
+	else if (src == 20 || dst == 20 || src == 21 || dst == 21) // FTP
+		return dissector_ftp(pi, buffer, len);
+	else if (src == 23 || dst == 23) // Telnet
+		return dissector_telnet(pi, buffer, len);
+	else if (src == 22 || dst == 22) // SSH
+		return dissector_ssh(pi, buffer, len);
+	else if (src == 25 || dst == 25) // SMTP
+		return dissector_smtp(pi, buffer, len);
+	else if (src == 36412 || dst == 36412) // SFTP
+		return dissector_sctp(pi, buffer, len);
+	else if (src == 110 || dst == 110) // POP3
+		return dissector_pop(pi, buffer, len);
+	else if (src == 143 || dst == 143) // IMAP
+		return dissector_imap(pi, buffer, len);
+
 	return 0;
 }
 
@@ -42,8 +57,8 @@ int dissector_udp(struct packet_info *pi, const u_char *buffer, size_t len)
 		goto truncated;
 	}
 
-	return dissector_next_layer(pi, buffer + sizeof(struct udphdr),
-				    len - sizeof(struct udphdr), src, dst);
+	return dissector_payload(pi, buffer + sizeof(struct udphdr),
+				 len - sizeof(struct udphdr), src, dst);
 
 truncated:
 	warnx("Malformed TCP header");
